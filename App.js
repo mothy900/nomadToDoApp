@@ -13,12 +13,21 @@ import { theme } from "./color";
 export default function App() {
   const [working, setWorking] = useState(true);
   const [text, setText] = useState("");
+  const [toDos, setToDos] = useState({}); //여기에 Array를 넣기도 하지만 이번 프로젝트에선 hashmap 을 만들것
   const travel = () => setWorking(false);
   const work = () => setWorking(true);
   const onChangeText = (event) => setText(event);
   const addToDo = () => {
-    alert(text);
+    if (text === "") {
+      return;
+    }
+    const newToDos = Object.assign({}, toDos, {
+      [Date.now()]: { text, work: working },
+    });
+    setToDos(newToDos);
+    setText("");
   };
+  console.log(toDos);
   return (
     <View style={styles.container}>
       <StatusBar style="auto" />
