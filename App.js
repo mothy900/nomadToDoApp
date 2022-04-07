@@ -7,26 +7,48 @@ import {
   TextInput,
   placeholder,
   ScrollView,
+  ActivityIndicator,
+  Alert,
+  Pressable,
 } from "react-native";
 import React, { useState, useEffect } from "react";
 import { theme } from "./color";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-
+import { FontAwesome5 } from "@expo/vector-icons";
+import { Fontisto } from "@expo/vector-icons";
 const STORAGE_KEY = "@toDos";
+const STATE_KEY = "@working";
 
 export default function App() {
-  const [working, setWorking] = useState(true);
+  const [loading, setLoading] = useState(true);
+  const [working, setWorking] = useState("");
   const [text, setText] = useState("");
+  const [done, setDone] = useState("false");
   const [toDos, setToDos] = useState({}); //여기에 Array를 넣기도 하지만 이번 프로젝트에선 hashmap 을 만들것
 
   useEffect(() => {
     // 화면 켜지자마자 실행
     loadToDos();
+    setLoading(false);
   }, []);
+  const saveWorking = async (satate) => {
+    const w = JSON.stringify(satate);
+    console.log("save : ", w);
+    await AsyncStorage.setItem(STATE_KEY, w);
+  };
+  const travel = () => {
+    setWorking(false);
+    saveWorking(false);
+  };
+  const work = () => {
+    setWorking(true);
+    saveWorking(true);
+  };
 
-  const travel = () => setWorking(false);
-  const work = () => setWorking(true);
-  const onChangeText = (event) => setText(event);
+  const onChangeText = (event) => {
+    console.log("change");
+    setText(event);
+  };
   const saveToDos = async (toSave) => {
     try {
       const s = JSON.stringify(toSave); // object를 string으로 변환
@@ -41,6 +63,13 @@ export default function App() {
       console.log(s);
 
       setToDos(JSON.parse(s)); //JSON.parse 로 원 형태로 복귀
+
+      const w = await AsyncStorage.getItem(STATE_KEY);
+      if (w == "") {
+        setWorking(true);
+      }
+
+      setWorking(JSON.parse(w));
     } catch (e) {
       console.log(e);
     }
@@ -50,7 +79,7 @@ export default function App() {
     if (text === "") {
       return;
     }
-
+    setDone(false);
     // ToDos 라는 배열에 추가하기.
     //const newToDos = Object.assign({}, toDos, {
     //[Date.now()]: { text, work: working }, // https://nomadcoders.co/react-native-for-beginners/lectures/3133 제대로 익히기
@@ -59,29 +88,55 @@ export default function App() {
     //위 주석과 같은 내용
     const newToDos = {
       ...toDos,
-      [Date.now()]: { text, working },
+      [Date.now()]: { text, working, done }, //key를 만들어서  기존의 오브젝트에다가 새로운 오브젝트를 만들고 싶음
     };
     setToDos(newToDos);
     await saveToDos(newToDos);
-
     setText("");
   };
   //console.log(toDos);
+  const deletToDo = (key) => {
+    Alert.alert(
+      `${working === true ? "Delete To Do" : "Delete To Travel"}`, // work, travel에 따라 삭제문구 변경
+      "Are you sure?",
+      [
+        { text: "Cancel" },
+        {
+          text: "Yes I'm sure",
+          style: "destructive",
+          onPress: () => {
+            const newToDos = { ...toDos }; ///2.하지만 여기서 state의 내용으로 새로운 object를 만들고 있음. 그 내용 때문에 ...를 사용함, 그래서 state의 내용으로 새로운 object를 만듦
+            delete newToDos[key];
+            setToDos(newToDos); // 1. state 는 mutate를 해주면 안되기 때문에
+            saveToDos(newToDos);
+          },
+        },
+      ]
+    );
+    return;
+  };
+  const doneToDo = (key) => {
+    setDone(!toDos[key].done);
+    toDos[key].done = !toDos[key].done;
+    console.log("toDo : ", toDos[key].done);
+  };
 
   return (
     <View style={styles.container}>
       <StatusBar style="auto" />
       <View style={styles.header}>
-        <TouchableOpacity onPress={work}>
+        <TouchableOpacity>
           <Text
             style={{ ...styles.btnText, color: working ? "white" : theme.grey }}
+            onPress={work}
           >
             Work~
           </Text>
         </TouchableOpacity>
-        <TouchableOpacity onPress={travel}>
+        <TouchableOpacity>
           <Text
             style={{ ...styles.btnText, color: working ? theme.grey : "white" }}
+            onPress={travel}
           >
             Travel!
           </Text>
@@ -100,15 +155,56 @@ export default function App() {
           value={text}
         />
       </View>
-      <ScrollView>
-        {Object.keys(toDos).map((key) =>
-          toDos[key].working === working ? ( // true === ture , false === flase  형태로 비교
-            <View style={styles.toDo} key={key}>
-              <Text style={styles.toDoText}>{toDos[key].text}</Text>
-            </View>
-          ) : null
-        )}
-      </ScrollView>
+      {loading === true ? ( //로딩창
+        <View style={styles.loading}>
+          <Text style={styles.loadingText}>
+            <ActivityIndicator size="small" color="#ffffff" /> Loading...
+          </Text>
+        </View>
+      ) : (
+        <ScrollView>
+          {Object.keys(toDos).map((key) =>
+            toDos[key].working === working ? ( // true === ture , false === flase  형태로 비교
+              <View style={styles.toDo} key={key}>
+                {
+                  <Text style={styles.toDoText}>
+                    <Pressable
+                      hitSlop={50}
+                      style={styles.checkBox}
+                      onPress={() => {
+                        doneToDo(key);
+                      }}
+                    >
+                      {toDos[key].done === false ? (
+                        <Fontisto
+                          name="checkbox-passive"
+                          size={16}
+                          color="white"
+                        />
+                      ) : (
+                        <Fontisto
+                          name="checkbox-active"
+                          size={16}
+                          color="white"
+                        />
+                      )}
+                    </Pressable>
+                    {toDos[key].text}
+                  </Text>
+                }
+
+                <TouchableOpacity
+                  onPress={() => {
+                    deletToDo(key);
+                  }}
+                >
+                  <FontAwesome5 name="trash-alt" size={18} color={theme.grey} />
+                </TouchableOpacity>
+              </View>
+            ) : null
+          )}
+        </ScrollView>
+      )}
     </View>
   );
 }
@@ -142,10 +238,34 @@ const styles = StyleSheet.create({
     paddingVertical: 20,
     paddingHorizontal: 20,
     borderRadius: 15,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
   },
+
   toDoText: {
     color: "white",
     fontSize: 16,
     fontWeight: "500",
   },
+  toDoneText: {
+    color: theme.grey,
+    fontSize: 16,
+    fontWeight: "500",
+    writingDirection: "rtl",
+  },
+  loading: {
+    height: "20%",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  loadingText: {
+    color: "white",
+    fontSize: 22,
+  },
+  checkBox: { alignItems: "center" },
 });
+
+// 1. todo, trevel 끌때랑 킬때랑 같은 항목 - check
+// 2. todo -완료 기능
+// 3. edit text
