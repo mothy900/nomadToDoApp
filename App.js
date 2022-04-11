@@ -5,7 +5,6 @@ import {
   View,
   TouchableOpacity,
   TextInput,
-  placeholder,
   ScrollView,
   ActivityIndicator,
   Alert,
@@ -17,7 +16,6 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { FontAwesome5 } from "@expo/vector-icons";
 import { Fontisto } from "@expo/vector-icons";
 import { EvilIcons } from "@expo/vector-icons";
-import { roundToNearestPixel } from "react-native/Libraries/Utilities/PixelRatio";
 const STORAGE_KEY = "@toDos";
 const STATE_KEY = "@working";
 
@@ -25,19 +23,20 @@ export default function App() {
   const [loading, setLoading] = useState(true);
   const [working, setWorking] = useState("");
   const [text, setText] = useState("");
-  const [done, setDone] = useState("false");
+  const [done, setDone] = useState(false);
   const [editKey, setEditKey] = useState(false);
   const [editText, setEditText] = useState("");
   const [toDos, setToDos] = useState({}); //여기에 Array를 넣기도 하지만 이번 프로젝트에선 hashmap 을 만들것
+  const [count, setCount] = useState(0);
 
   useEffect(() => {
     // 화면 켜지자마자 실행
+
     loadToDos();
+
     setLoading(false);
   }, []);
-  useEffect(() => {
-    console.log("useEffect");
-  }, [done]);
+
   const saveWorking = async (satate) => {
     const w = JSON.stringify(satate);
     console.log("save : ", w);
@@ -53,13 +52,13 @@ export default function App() {
   };
 
   const onChangeText = (event) => {
-    console.log("change");
     setText(event);
   };
   const saveToDos = async (toSave) => {
     try {
       const s = JSON.stringify(toSave); // object를 string으로 변환
       await AsyncStorage.setItem(STORAGE_KEY, s);
+      console.log(s);
     } catch (error) {
       console.log(error);
     }
@@ -68,7 +67,6 @@ export default function App() {
     try {
       const s = await AsyncStorage.getItem(STORAGE_KEY);
       console.log(s);
-
       setToDos(JSON.parse(s)); //JSON.parse 로 원 형태로 복귀
 
       const w = await AsyncStorage.getItem(STATE_KEY);
@@ -78,7 +76,7 @@ export default function App() {
 
       setWorking(JSON.parse(w));
     } catch (e) {
-      console.log(e);
+      console.log("Error : ", e);
     }
   };
 
@@ -123,14 +121,17 @@ export default function App() {
     return;
   };
   const doneToDo = (key) => {
-    setDone(!toDos[key].done);
+    done === true ? setDone(false) : setDone(true);
     toDos[key].done = !toDos[key].done;
     console.log("toDo : ", toDos[key].done);
   };
   const editTodo = (key) => {
-    setEditKey(key);
+    if (key == editKey) {
+      setEditKey("");
+    } else {
+      setEditKey(key);
+    }
   };
-
   const editToDOText = (key) => {
     toDos[key].text = editText;
     setEditKey("");
@@ -186,7 +187,7 @@ export default function App() {
               <View style={styles.toDo} key={key}>
                 <View style={styles.toDoCheck}>
                   <Pressable
-                    hitSlop={50}
+                    hitSlop={20}
                     style={styles.checkBox}
                     onPress={() => {
                       doneToDo(key);
@@ -222,24 +223,32 @@ export default function App() {
                   )}
                 </View>
                 <View style={styles.iconButton}>
-                  <TouchableOpacity
-                    onPress={() => {
-                      editTodo(key);
-                    }}
+                  <Pressable
+                    hitSlop={{ bottom: 20, left: 20, right: 0, top: 20 }}
                   >
-                    <EvilIcons name="pencil" size={24} color="white" />
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    onPress={() => {
-                      deletToDo(key);
-                    }}
+                    <TouchableOpacity
+                      onPress={() => {
+                        editTodo(key);
+                      }}
+                    >
+                      <EvilIcons name="pencil" size={24} color="white" />
+                    </TouchableOpacity>
+                  </Pressable>
+                  <Pressable
+                    hitSlop={{ bottom: 20, left: 0, right: 20, top: 20 }}
                   >
-                    <FontAwesome5
-                      name="trash-alt"
-                      size={18}
-                      color={theme.grey}
-                    />
-                  </TouchableOpacity>
+                    <TouchableOpacity
+                      onPress={() => {
+                        deletToDo(key);
+                      }}
+                    >
+                      <FontAwesome5
+                        name="trash-alt"
+                        size={18}
+                        color={theme.grey}
+                      />
+                    </TouchableOpacity>
+                  </Pressable>
                 </View>
               </View>
             ) : null
@@ -319,3 +328,5 @@ const styles = StyleSheet.create({
 // 1. todo, trevel 끌때랑 킬때랑 같은 항목 - check
 // 2. todo -완료 기능
 // 3. edit text
+// 4. done 기능 setDone 재설정
+// 5. edit 2번 누르면 행동 불능 오류 수정
